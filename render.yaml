@@ -1,22 +1,13 @@
 services:
   - type: web
-    name: rickortygame
+    name: rickortychat
     env: node
-    plan: free
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        sync: false
-      - key: VITE_GEMINI_API_KEY_1
-        sync: false
-      - key: VITE_GEMINI_API_KEY_2
-        sync: false
-      - key: VITE_GEMINI_API_KEY_3
-        sync: false
-      - key: VITE_GEMINI_API_KEY_4
-        sync: false
-      - key: VITE_GEMINI_API_KEY_5
-        sync: false
+      - key: PORT
+        value: 3000
+    healthCheckPath: /
+    autoDeploy: true
