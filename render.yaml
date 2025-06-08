@@ -9,5 +9,17 @@ services:
         value: production
       - key: PORT
         value: 3000
+      - key: DATABASE_URL
+        sync: false
+      - key: VITE_GEMINI_API_KEY_1
+        sync: false
+      - key: VITE_GEMINI_API_KEY_2
+        sync: false
+      - key: VITE_GEMINI_API_KEY_3
+        sync: false
+      - key: VITE_GEMINI_API_KEY_4
+        sync: false
+      - key: VITE_GEMINI_API_KEY_5
+        sync: false
     healthCheckPath: /
     autoDeploy: true
