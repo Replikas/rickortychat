@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const puppeteer = require('puppeteer'); // Add this line
 const {
   initializeDatabase,
   createUser,
@@ -18,9 +19,159 @@ const {
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// Character URL mapping for HammerAI
+const characterUrls = {
+  rick: 'https://www.hammerai.com/chat?id=0ba0dbd8-11df-474f-8c97-a081720a8ac5&secret=8c877713-4601-4169-9044-b3361703484c',
+  morty: 'https://www.hammerai.com/chat?id=dc226cf2-5e24-41ff-8f3d-284ca41eb783&secret=3a9b9201-9601-4202-81ae-a0b2bb27022c',
+  rickprime: 'https://www.hammerai.com/chat?id=53c8c795-fd65-47c6-a49d-1517f8e969d9&secret=f0982b21-bec7-47c7-a0ea-cf47e54a503d',
+  evilmorty: 'https://www.hammerai.com/chat?id=6b14a931-16d6-4fe5-a476-5f93640b5e08&secret=15c9c9f8-f5f9-48c7-b435-8768168874da'
+};
+
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dist')));
+
+// HammerAI Chat Integration - Add this before the existing API routes
+app.post('/api/hammerai-chat', async (req, res) => {
+  const { message, character } = req.body;
+  const characterUrl = characterUrls[character];
+  
+  if (!characterUrl) {
+    return res.status(400).json({ error: 'Unknown character' });
+  }
+  
+  try {
+    const browser = await puppeteer.launch({ 
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    });
+    
+    const page = await browser.newPage();
+    
+    // Set user agent
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    
+    // Navigate to character chat
+    await page.goto(characterUrl, { waitUntil: 'networkidle0', timeout: 30000 });
+    
+    // Wait for page load
+    await page.waitForTimeout(3000);
+    
+    // Handle age verification if present
+    try {
+      const enterButton = await page.$('button');
+      if (enterButton) {
+        const buttonText = await page.evaluate(el => el.textContent, enterButton);
+        if (buttonText && buttonText.toLowerCase().includes('enter')) {
+          await enterButton.click();
+          await page.waitForTimeout(2000);
+        }
+      }
+    } catch (e) {
+      // Age verification might not be present
+    }
+    
+    // Find and fill input field
+    const inputSelectors = [
+      'textarea[placeholder*="message"]',
+      'textarea[placeholder*="type"]',
+      'input[type="text"]',
+      'textarea',
+      '.chat-input',
+      '#message-input'
+    ];
+    
+    let inputFound = false;
+    for (const selector of inputSelectors) {
+      try {
+        await page.waitForSelector(selector, { timeout: 3000 });
+        await page.click(selector);
+        await page.type(selector, message);
+        inputFound = true;
+        break;
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    if (!inputFound) {
+      throw new Error('Could not find message input field');
+    }
+    
+    // Find and click send button
+    const sendSelectors = [
+      'button[type="submit"]',
+      'button[aria-label*="send"]',
+      'button[aria-label*="Send"]',
+      'button:has(svg)',
+      '.send-button'
+    ];
+    
+    let sendFound = false;
+    for (const selector of sendSelectors) {
+      try {
+        await page.click(selector);
+        sendFound = true;
+        break;
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    if (!sendFound) {
+      await page.keyboard.press('Enter');
+    }
+    
+    // Wait for response
+    await page.waitForTimeout(8000);
+    
+    // Get response
+    const responseSelectors = [
+      '.message:last-child',
+      '.chat-message:last-child',
+      '[data-role="assistant"]:last-child',
+      '.ai-message:last-child'
+    ];
+    
+    let response = null;
+    for (const selector of responseSelectors) {
+      try {
+        const elements = await page.$$(selector);
+        if (elements.length > 0) {
+          const lastElement = elements[elements.length - 1];
+          response = await page.evaluate(el => el.textContent, lastElement);
+          if (response && response.trim().length > 0 && !response.includes(message)) {
+            break;
+          }
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    await browser.close();
+    
+    if (!response || response.trim().length === 0) {
+      throw new Error('No response received');
+    }
+    
+    res.json({ response: response.trim() });
+    
+  } catch (error) {
+    console.error('HammerAI Error:', error);
+    
+    const fallbacks = {
+      rick: "*burp* Sorry Morty, I'm having some technical difficulties.",
+      morty: "Aw geez, I-I'm having some trouble right now, y'know?",
+      evilmorty: "Technical difficulties. How predictable.",
+      rickprime: "Even I have limits, apparently."
+    };
+    
+    res.json({ 
+      response: fallbacks[character] || "*Character is temporarily unavailable*"
+    });
+  }
+});
 
 // API Routes
 

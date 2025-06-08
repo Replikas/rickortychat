@@ -40,7 +40,7 @@ export const GameProvider = ({ children }) => {
       setIsLoading(true)
       try {
         // Load progress
-        const progress = await loadProgress(selectedCharacter)
+        const progress = await loadProgress(selectedCharacter.id)
         if (progress) {
           setAffectionLevel(progress.affection_level || 0)
           setCurrentEmotion(progress.current_emotion || 'neutral')
@@ -49,7 +49,7 @@ export const GameProvider = ({ children }) => {
         }
         
         // Load chat history
-        const history = await loadChatHistory(selectedCharacter, 50)
+        const history = await loadChatHistory(selectedCharacter.id, 50)
         const formattedHistory = history.map(chat => ({
           userInput: chat.user_input,
           response: chat.character_response,
@@ -72,7 +72,7 @@ export const GameProvider = ({ children }) => {
     if (!selectedCharacter || !currentUser) return
 
     const saveInterval = setInterval(() => {
-      autoSave(selectedCharacter, {
+      autoSave(selectedCharacter.id, {
         affectionLevel,
         currentEmotion,
         nsfwEnabled,
@@ -95,7 +95,7 @@ export const GameProvider = ({ children }) => {
     // Save progress immediately on affection change
     if (selectedCharacter && currentUser) {
       try {
-        await saveProgress(selectedCharacter, {
+        await saveProgress(selectedCharacter.id, {
           affectionLevel: newLevel,
           currentEmotion,
           nsfwEnabled,
@@ -108,20 +108,59 @@ export const GameProvider = ({ children }) => {
   }
 
   const addToHistory = async (userInput, characterResponse, emotion) => {
-    const newEntry = {
-      userInput,
-      response: characterResponse,
-      emotion,
-      timestamp: new Date().toISOString()
+    console.log('addToHistory called with:', { userInput, characterResponse, emotion })
+    console.log('Current conversationHistory length:', conversationHistory.length)
+    
+    // Add user message if userInput is provided
+    if (userInput) {
+      const userMessage = {
+        id: Date.now(),
+        sender: 'user',
+        content: userInput,
+        timestamp: new Date()
+      }
+      console.log('Adding user message:', userMessage)
+      setConversationHistory(prev => {
+        console.log('Previous conversation history:', prev)
+        const newHistory = [...prev, userMessage]
+        console.log('New conversation history after user message:', newHistory)
+        return newHistory
+      })
     }
     
-    setConversationHistory(prev => [...prev, newEntry])
+    // Add character response if characterResponse is provided
+    if (characterResponse) {
+      const characterMessage = {
+        id: Date.now() + 1,
+        sender: 'character',
+        content: characterResponse,
+        timestamp: new Date(),
+        emotion: emotion || 'neutral'
+      }
+      console.log('Adding character message:', characterMessage)
+      setConversationHistory(prev => {
+        console.log('Previous conversation history:', prev)
+        const newHistory = [...prev, characterMessage]
+        console.log('New conversation history after character message:', newHistory)
+        return newHistory
+      })
+    }
+    
     setTotalInteractions(prev => prev + 1)
     
     // Save to database if user is logged in
-    if (selectedCharacter && currentUser) {
+    if (selectedCharacter && currentUser && userInput && characterResponse) {
       try {
-        await saveChatToHistory(selectedCharacter, userInput, characterResponse, emotion)
+        console.log('Saving chat to database...')
+        // Ensure character ID is a string
+        const characterId = typeof selectedCharacter.id === 'string' 
+          ? selectedCharacter.id 
+          : String(selectedCharacter.id);
+        
+        console.log('Using character ID for database:', characterId)
+        await saveChatToHistory(characterId, userInput, true)
+        await saveChatToHistory(characterId, characterResponse, false)
+        console.log('Chat saved to database successfully')
       } catch (error) {
         console.error('Failed to save chat:', error)
       }
@@ -139,7 +178,7 @@ export const GameProvider = ({ children }) => {
     // Save immediately
     if (selectedCharacter && currentUser) {
       try {
-        await saveProgress(selectedCharacter, {
+        await saveProgress(selectedCharacter.id, {
           affectionLevel,
           currentEmotion,
           nsfwEnabled: newNsfwState,
@@ -160,7 +199,7 @@ export const GameProvider = ({ children }) => {
     // Save reset state
     if (selectedCharacter && currentUser) {
       try {
-        await saveProgress(selectedCharacter, {
+        await saveProgress(selectedCharacter.id, {
           affectionLevel: 0,
           currentEmotion: 'neutral',
           nsfwEnabled,

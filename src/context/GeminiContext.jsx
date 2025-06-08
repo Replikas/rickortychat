@@ -100,87 +100,50 @@ export const GeminiProvider = ({ children }) => {
   }
 
   const generateResponse = async (character, userInput, conversationHistory = [], emotion = 'neutral', nsfwEnabled = false) => {
-    const currentKey = getCurrentApiKey()
-    if (!currentKey) {
-      throw new Error('No API keys configured. Please add your API keys in settings.')
-    }
-
-    setIsLoading(true)
-    setError(null)
-
-    const attemptGeneration = async (apiKey, attempt = 1) => {
-      try {
-        const genAI = new GoogleGenerativeAI(apiKey)
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
-
-      const characterData = characterPrompts[character]
-      if (!characterData) {
-        throw new Error(`Unknown character: ${character}`)
-      }
-
-      // Build the system prompt
-      let systemPrompt = characterData.base
-      if (nsfwEnabled && characterData.nsfw) {
-        systemPrompt += '\n\n' + characterData.nsfw
-      }
-      systemPrompt += '\n\nCurrent emotional state: ' + characterData.emotions[emotion]
-      
-      // Add conversation context
-      let contextPrompt = systemPrompt + '\n\nConversation so far:\n'
-      
-      // Include recent conversation history (last 10 exchanges)
-      const recentHistory = conversationHistory.slice(-10)
-      recentHistory.forEach(entry => {
-        contextPrompt += `User: ${entry.userInput}\n${character}: ${entry.response}\n`
-      })
-      
-      contextPrompt += `\nUser: ${userInput}\n${character}:`
-      
-      // Add response guidelines
-      contextPrompt += `\n\nGuidelines:
-- Stay in character at all times
-- Keep responses under 75 words
-- Be reactive to the user's input
-- Show emotional changes through your dialogue
-- Include action descriptions in *asterisks* when appropriate
-- Remember previous conversations and reference them
-${nsfwEnabled ? '- Adult content is allowed and encouraged when appropriate' : '- Keep content suggestive but not explicit'}`
-
-        const result = await model.generateContent(contextPrompt)
-        const response = result.response
-        const text = response.text()
-
-        setIsLoading(false)
-        return text.trim()
-      } catch (error) {
-        // Check if it's a rate limit error
-        if (error.message.includes('quota') || error.message.includes('rate') || error.message.includes('limit')) {
-          console.warn(`API key ${attempt} hit rate limit, trying to rotate...`)
-          
-          // Try to rotate to next key
-          if (rotateToNextKey()) {
-            const nextKey = getCurrentApiKey()
-            if (nextKey && nextKey !== apiKey && attempt < 3) {
-              console.log(`Rotating to next API key (attempt ${attempt + 1})...`)
-              return await attemptGeneration(nextKey, attempt + 1)
-            }
-          }
-          
-          throw new Error('All API keys have hit their rate limits. Please wait or add more keys.')
-        }
-        
-        throw error
-      }
-    }
+    console.log('generateResponse called with:', { character, userInput, conversationHistory, emotion, nsfwEnabled })
+    console.log('Current error state before generateResponse:', error)
+    
+    setIsLoading(true);
+    setError(null);
+    
+    console.log('Error state cleared, isLoading set to true')
 
     try {
-      return await attemptGeneration(currentKey)
+      // Ensure character is a string
+      const characterId = typeof character === 'string' ? character : String(character);
+      console.log('Using character ID for HammerAI API:', characterId)
+      
+      console.log('Calling HammerAI API for character:', characterId)
+      
+      const response = await fetch('/api/hammerai-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userInput,
+          character: characterId  // Use the string version here
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('HammerAI response received:', data)
+      
+      setIsLoading(false);
+      return data.response || "*No response received*";
+      
     } catch (error) {
-      setIsLoading(false)
-      setError(error.message)
-      throw error
+      console.error('Error in generateResponse:', error)
+      setIsLoading(false);
+      setError(error.message);
+      console.log('Error set to:', error.message)
+      return "*Error occurred*";
     }
-  }
+  };
 
   const analyzeEmotion = (response) => {
     const emotionKeywords = {
@@ -246,3 +209,29 @@ ${nsfwEnabled ? '- Adult content is allowed and encouraged when appropriate' : '
     </GeminiContext.Provider>
   )
 }
+
+const generateResponse = async (character, userInput, conversationHistory = [], emotion = 'neutral', nsfwEnabled = false) => {
+  setIsLoading(true);
+  setError(null);
+
+  try {
+    // Temporary fallback responses while debugging HammerAI
+    const fallbacks = {
+      rick: "*burp* Yeah, whatever Morty. I'm having some technical difficulties right now.",
+      morty: "Aw geez, I-I'm having some trouble connecting right now, y'know?",
+      evilmorty: "Technical difficulties. How predictable.",
+      rickprime: "Even I have limits, apparently."
+    };
+    
+    // Simulate loading time
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    setIsLoading(false);
+    return fallbacks[character] || "*Character is temporarily unavailable*";
+    
+  } catch (error) {
+    setIsLoading(false);
+    setError(error.message);
+    return "*Error occurred*";
+  }
+};

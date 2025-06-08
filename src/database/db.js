@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+const { Pool } = require('pg');
 
 // Database connection configuration
 const pool = new Pool({
@@ -9,7 +9,7 @@ const pool = new Pool({
 });
 
 // Initialize database tables
-export const initializeDatabase = async () => {
+const initializeDatabase = async () => {
   try {
     // Users table
     await pool.query(`
@@ -73,7 +73,7 @@ export const initializeDatabase = async () => {
 };
 
 // User management functions
-export const createUser = async (username, email = null) => {
+const createUser = async (username, email = null) => {
   try {
     const result = await pool.query(
       'INSERT INTO users (username, email) VALUES ($1, $2) RETURNING *',
@@ -88,7 +88,7 @@ export const createUser = async (username, email = null) => {
   }
 };
 
-export const getUserByUsername = async (username) => {
+const getUserByUsername = async (username) => {
   try {
     const result = await pool.query(
       'SELECT * FROM users WHERE username = $1',
@@ -100,7 +100,7 @@ export const getUserByUsername = async (username) => {
   }
 };
 
-export const updateUserLogin = async (userId) => {
+const updateUserLogin = async (userId) => {
   try {
     await pool.query(
       'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
@@ -112,7 +112,7 @@ export const updateUserLogin = async (userId) => {
 };
 
 // Game progress functions
-export const saveGameProgress = async (userId, character, progressData) => {
+const saveGameProgress = async (userId, character, progressData) => {
   try {
     const { affectionLevel, currentEmotion, nsfwEnabled, totalInteractions } = progressData;
     
@@ -135,7 +135,7 @@ export const saveGameProgress = async (userId, character, progressData) => {
   }
 };
 
-export const loadGameProgress = async (userId, character) => {
+const loadGameProgress = async (userId, character) => {
   try {
     const result = await pool.query(
       'SELECT * FROM game_progress WHERE user_id = $1 AND character = $2',
@@ -147,7 +147,7 @@ export const loadGameProgress = async (userId, character) => {
   }
 };
 
-export const getAllUserProgress = async (userId) => {
+const getAllUserProgress = async (userId) => {
   try {
     const result = await pool.query(
       'SELECT * FROM game_progress WHERE user_id = $1',
@@ -160,7 +160,7 @@ export const getAllUserProgress = async (userId) => {
 };
 
 // Chat history functions
-export const saveChatMessage = async (userId, character, userInput, characterResponse, emotion) => {
+const saveChatMessage = async (userId, character, userInput, characterResponse, emotion) => {
   try {
     const result = await pool.query(`
       INSERT INTO chat_history (user_id, character, user_input, character_response, emotion)
@@ -174,7 +174,7 @@ export const saveChatMessage = async (userId, character, userInput, characterRes
   }
 };
 
-export const getChatHistory = async (userId, character, limit = 50) => {
+const getChatHistory = async (userId, character, limit = 50) => {
   try {
     const result = await pool.query(`
       SELECT * FROM chat_history 
@@ -189,7 +189,7 @@ export const getChatHistory = async (userId, character, limit = 50) => {
   }
 };
 
-export const deleteChatHistory = async (userId, character) => {
+const deleteChatHistory = async (userId, character) => {
   try {
     await pool.query(
       'DELETE FROM chat_history WHERE user_id = $1 AND character = $2',
@@ -201,7 +201,7 @@ export const deleteChatHistory = async (userId, character) => {
 };
 
 // Character memory functions
-export const saveCharacterMemory = async (userId, character, memoryType, memoryContent, importanceScore = 1) => {
+const saveCharacterMemory = async (userId, character, memoryType, memoryContent, importanceScore = 1) => {
   try {
     const result = await pool.query(`
       INSERT INTO character_memories (user_id, character, memory_type, memory_content, importance_score)
@@ -215,7 +215,7 @@ export const saveCharacterMemory = async (userId, character, memoryType, memoryC
   }
 };
 
-export const getCharacterMemories = async (userId, character, limit = 20) => {
+const getCharacterMemories = async (userId, character, limit = 20) => {
   try {
     const result = await pool.query(`
       SELECT * FROM character_memories 
@@ -230,7 +230,7 @@ export const getCharacterMemories = async (userId, character, limit = 20) => {
   }
 };
 
-export const updateCharacterMemory = async (memoryId, memoryContent, importanceScore) => {
+const updateCharacterMemory = async (memoryId, memoryContent, importanceScore) => {
   try {
     const result = await pool.query(`
       UPDATE character_memories 
@@ -245,7 +245,7 @@ export const updateCharacterMemory = async (memoryId, memoryContent, importanceS
   }
 };
 
-export const deleteCharacterMemory = async (memoryId) => {
+const deleteCharacterMemory = async (memoryId) => {
   try {
     await pool.query('DELETE FROM character_memories WHERE id = $1', [memoryId]);
   } catch (error) {
@@ -254,7 +254,7 @@ export const deleteCharacterMemory = async (memoryId) => {
 };
 
 // Cleanup old data
-export const cleanupOldData = async (daysToKeep = 30) => {
+const cleanupOldData = async (daysToKeep = 30) => {
   try {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
@@ -278,4 +278,21 @@ export const cleanupOldData = async (daysToKeep = 30) => {
   }
 };
 
-export default pool;
+module.exports = {
+  initializeDatabase,
+  createUser,
+  getUserByUsername,
+  updateUserLogin,
+  saveGameProgress,
+  loadGameProgress,
+  getAllUserProgress,
+  saveChatMessage,
+  getChatHistory,
+  deleteChatHistory,
+  saveCharacterMemory,
+  getCharacterMemories,
+  updateCharacterMemory,
+  deleteCharacterMemory,
+  cleanupOldData,
+  pool
+};

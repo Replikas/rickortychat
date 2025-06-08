@@ -11,13 +11,16 @@ class ErrorBoundary extends React.Component {
     this.state = { hasError: false, error: null }
   }
   static getDerivedStateFromError(error) {
+    console.error('ErrorBoundary caught an error:', error)
     return { hasError: true, error }
   }
   componentDidCatch(error, errorInfo) {
+    console.error('ErrorBoundary componentDidCatch:', error, errorInfo)
     // You can log errorInfo to an error reporting service here
   }
   render() {
     if (this.state.hasError) {
+      console.log('ErrorBoundary rendering error screen due to:', this.state.error)
       return (
         <div className="min-h-screen flex items-center justify-center bg-black text-red-400 text-center">
           <div>
@@ -28,17 +31,28 @@ class ErrorBoundary extends React.Component {
         </div>
       )
     }
+    console.log('ErrorBoundary rendering children normally')
     return this.props.children
   }
 }
 
 function App() {
   const [showLogin, setShowLogin] = useState(true)
+  
+  console.log('App component rendering, showLogin:', showLogin)
+  // Add alert to bypass console filtering issues
+  if (typeof window !== 'undefined' && !window.debugAlertShown) {
+    alert('App component loaded - check console for logs')
+    window.debugAlertShown = true
+  }
 
   const handleLoginSuccess = () => {
+    console.log('Login successful, switching to GameScreen')
     setShowLogin(false)
   }
 
+  console.log('App about to render with showLogin:', showLogin)
+  
   return (
     <ErrorBoundary>
       <DatabaseProvider>

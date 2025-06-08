@@ -413,74 +413,40 @@ const GameScreen = () => {
   }
 
   const handleSendMessage = async () => {
-    if (!input.trim() || isTyping || !selectedCharacter) return
+    if (!input.trim() || !selectedCharacter) return;
 
-    const userMessage = {
-      id: Date.now(),
-      sender: 'user',
-      content: input.trim(),
-      timestamp: new Date()
-    }
-
-    // Add user message to history
-    addToHistory(input.trim(), null, null)
-    setInput('')
-    setIsTyping(true)
+    setIsTyping(true);
+    addToHistory(input, null, null); // Add user message (userInput is input, characterResponse is null)
 
     try {
-      // Save user message to backend
-      await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUser?.id,
-          character: selectedCharacter.id,
-          message: input.trim(),
-          isUser: true
-        })
-      })
-
-      // Generate AI response
-      const formattedHistory = conversationHistory.map(entry => ({ userInput: entry.userInput, response: entry.response }))
-      formattedHistory.push({ userInput: input.trim(), response: null })
-      const response = await generateResponse(
-        selectedCharacter.id,
-        input.trim(),           // userInput should be the actual user input
-        formattedHistory,       // conversationHistory should be the formatted history
-        currentEmotion,         // emotion
-        nsfwEnabled            // nsfwEnabled
-      )
-
-      if (response) {
-        const aiMessage = {
-          id: Date.now() + 1,
-          sender: 'character',
-          content: response,
-          timestamp: new Date(),
-          emotion: currentEmotion
-        }
-
-        // Add AI message to history
-        addToHistory(null, response, currentEmotion)
-        // Update affection based on interaction
-        updateAffection(5)
+      if (!selectedCharacter || !selectedCharacter.id) {
+        console.error('CRITICAL: Selected character or character ID is missing before generateResponse.');
+        throw new Error('Selected character or character ID is missing.');
       }
+
+      console.log('GameScreen: Preparing to call generateResponse.');
+      console.log('GameScreen: selectedCharacter:', selectedCharacter);
+      console.log('GameScreen: selectedCharacter.id:', selectedCharacter.id);
+      console.log('GameScreen: typeof selectedCharacter.id:', typeof selectedCharacter.id);
+      
+      // Make sure we're passing the character ID as a string, not the entire character object
+      const characterId = String(selectedCharacter.id);
+      console.log('GameScreen: characterId to be passed:', characterId);
+      
+      const response = await generateResponse(characterId, input);
+      addToHistory(null, response, currentEmotion); // Add AI response (userInput is null, characterResponse is response)
+
     } catch (error) {
-      console.error('Error generating response:', error)
-      const errorMessage = {
-        id: Date.now() + 1,
-        sender: 'character',
-        content: "*glitches* Sorry, something went wrong with the interdimensional communication...",
-        timestamp: new Date(),
-        emotion: 'confused'
-      }
-      addToHistory(errorMessage)
-    } finally {
-      setIsTyping(false)
+      console.error('Error in handleSendMessage during/after generateResponse:', error);
+      addToHistory(null, "*glitches* Sorry, something went wrong with the interdimensional communication...", 'confused');
     }
-  }
+
+    setInput('');
+    setIsTyping(false);
+  };
 
   if (isLoading) {
+    console.log('GameScreen: isLoading is true, showing loading screen')
     return (
       <div className="min-h-screen flex items-center justify-center portal-gradient">
         <div className="text-center">
@@ -492,6 +458,7 @@ const GameScreen = () => {
   }
 
   if (geminiError) {
+    console.log('GameScreen: geminiError detected:', geminiError)
     return (
       <div className="min-h-screen flex items-center justify-center bg-black text-red-400 text-center">
         <div>
@@ -503,6 +470,7 @@ const GameScreen = () => {
     )
   }
 
+  console.log('GameScreen: Rendering normal screen, conversationHistory length:', conversationHistory.length)
   return renderScreen()
 }
 
